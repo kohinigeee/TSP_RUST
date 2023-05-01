@@ -91,3 +91,67 @@ pub fn Kruskal( tsp : &Tsp ) -> Tord {
 
     tsp.make_ord_from_edges(&roots).unwrap()
 }
+
+pub fn insertion (tsp : &Tsp ) -> Tord {
+    let n = tsp.size;
+    let inf = (1i64<<60);
+    let init_points: Vec<usize> = vec![0,1,2];
+    let mut next : Vec<usize> = vec![0; n]; //ordの順番の管理
+    let mut score : Vec<(i64, usize)> = vec![(inf, n+1); n]; //score ().0 : value, ().1 頂点iが挿入される間の前側の頂点
+    let mut selected : Vec<bool> = vec![false; n];
+
+    for i in 0..n { next[i] = i; }
+
+    next[init_points[0]] = init_points[1];
+    next[init_points[1]] = init_points[2];
+    next[init_points[2]] = init_points[0];
+
+    for i in init_points.iter() {
+        selected[*i] = true;
+        for j in 0..n {
+            let tmp_score = Point::dis(&tsp.points[j], &tsp.points[*i]);
+            score[j] = std::cmp::min( score[j], (tmp_score, *i));
+        }
+    }
+
+    let mut selected_cnt : usize = 3;
+    let cmp = |a : &(i64, usize), b: &(i64, usize)| {
+        if a.0 == b.0 { return a.1 < b.1; }
+        a.0 < b.0
+    };
+
+    while selected_cnt < n {
+        let mut idx = n+1;
+        let mut best_score = (inf, n+1);
+
+        for ( i, sco ) in score.iter().enumerate() {
+            if selected[i] { continue; }
+            if *sco < best_score {
+                idx = i;
+                best_score = *sco;
+            }
+        }
+
+        let prev_idx = best_score.1;
+        next[idx] = next[prev_idx];
+        next[prev_idx] = idx;
+
+        for j in 0..n {
+            let tmp_score = Point::dis(&tsp.points[j], &tsp.points[idx]);
+            score[j] = std::cmp::min( score[j], (tmp_score, idx));
+        }
+
+        selected_cnt += 1;
+        selected[idx] = true;
+    }
+
+    let mut idx = next[0];
+    let mut ans : Tord = vec![idx];
+
+    while idx != 0 {
+        ans.push(next[idx]);
+        idx = next[idx];
+    }
+
+    ans
+}

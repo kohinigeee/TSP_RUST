@@ -15,7 +15,7 @@ use modules::segmenttree::SegmentTree;
 fn main() {
 
     // let problem : ProblemPath = ProblemPath::new("berlin52".to_string());
-    let problem : ProblemPath = ProblemPath::new("fnl4461".to_string());
+    let problem : ProblemPath = ProblemPath::new("att48".to_string());
     let fpath : String = problem.getInstPath(); 
     let inst : TspInstance = TspInstance::fromFile(&fpath).unwrap();
     let tsp : Tsp = Tsp::from(&inst);
@@ -28,6 +28,11 @@ fn main() {
     }
     println!();
     println!("Kruskal score = {}", tsp.calcScore(&ord).unwrap());
+
+    let mut insr: Tord = construct::insertion(&tsp);
+
+    for i in insr.iter() { print!("{} ", i); } println!();
+    println!("Insertion score = {}", tsp.calcScore(&insr).unwrap());
 
     // let ord = construct::nearest_all(&tsp);
     // let score = tsp.calcScore(&ord).unwrap();

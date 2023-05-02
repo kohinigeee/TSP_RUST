@@ -92,7 +92,7 @@ pub fn Kruskal( tsp : &Tsp ) -> Tord {
     tsp.make_ord_from_edges(&roots).unwrap()
 }
 
-pub fn insertion (tsp : &Tsp ) -> Tord {
+pub fn insertion_demo (tsp : &Tsp ) -> Tord {
     let n = tsp.size;
     let inf = (1i64<<60);
     let init_points: Vec<usize> = vec![0,1,2];
@@ -154,4 +154,107 @@ pub fn insertion (tsp : &Tsp ) -> Tord {
     }
 
     ans
+}
+
+pub struct Insertion<T: Clone> {
+    pub tsp : Tsp,
+    pub selected_points : Vec<usize>,
+    pub next : Vec<usize>,
+    pub scores : Vec<(T,usize)>,
+}
+
+impl<T : Clone> Insertion<T> {
+    pub fn new(tsp_inst: &Tsp ) -> Insertion<T> {
+        let mut selected_points: Vec<usize> = vec![];
+        let mut next : Vec<usize> = vec![];
+        let mut scores : Vec<(T,usize)> = vec![];
+        let tsp : Tsp = tsp_inst.clone();
+
+        Insertion { tsp , selected_points, next,  scores}
+    }
+}
+
+// calc_score : a:=対象のidx, b:=更新時のペアのidx
+
+impl<T: Clone> Insertion<T>{
+   pub fn calc_ord( &mut self, zerogen : &T, calc_score : impl Fn( &mut Insertion<T>, usize, usize)-> T, cmp : impl Fn( &T, &T,)->bool, select_pos : impl Fn( usize, &(T, usize))-> usize ) -> Tord
+    {  
+    let ans : Tord = vec![];
+    let n  = self.tsp.size;
+
+    self.selected_points = vec![0,1,2];
+    self.next = vec![0; n];
+    self.scores = vec![(zerogen.clone(), n+1); n];
+
+    for i in 0..n { self.next[i] = i; }
+
+    self.next[self.selected_points[0]] = self.selected_points[1];
+    self.next[self.selected_points[1]] = self.selected_points[2];
+    self.next[self.selected_points[2]] = self.selected_points[0];
+
+    for i in 0..self.selected_points.len() {
+        let pno = self.selected_points[i];
+        for j in 0..n {
+            let tmp_score : T = calc_score(self, j, pno);
+            if cmp( &tmp_score, &self.scores[j].0 ) {
+                self.scores[j] = (tmp_score, pno);
+            }
+        }
+    }
+
+    let mut selected_cnt : usize = 3;
+    while selected_cnt < n {
+        let mut idx = n+1;
+        let mut best_score = (zerogen.clone(), n+1);
+
+        for ( i, sco ) in self.scores.iter().enumerate() {
+            if self.next[i] != i { continue; }
+            if cmp( &(*sco).0, &best_score.0 ) {
+                idx = i;
+                best_score = (*sco).clone();
+            }
+        }
+        
+        let prev_dix = select_pos(idx, &best_score);
+        self.next[idx] = self.next[prev_dix];
+        self.next[prev_dix] = idx;
+
+        for j in 0..n {
+            let tmp_score : T = calc_score(self, j, idx);
+            if cmp(&tmp_score, &self.scores[j].0) {
+                self.scores[j] = (tmp_score, idx);
+            }
+        }
+
+        selected_cnt += 1;
+    }
+
+    let mut idx : usize = self.next[0];
+    let mut ans : Tord = vec![idx];
+
+    while idx != 0 {
+        ans.push(self.next[idx]);
+        idx = self.next[idx];
+    }
+
+    ans
+   } 
+}
+
+impl Insertion<i64> {
+    pub fn calc_nearest(&mut self) -> Tord {
+        let zerogen : i64 = (1i64<<60);
+
+        let calc_score : fn(&mut Insertion<i64>, usize, usize)->i64 = | sel, a, b | {
+            Point::dis(&sel.tsp.points[a], &sel.tsp.points[b])
+        };
+
+        let cmp : fn(&i64, &i64)->bool = |a, b| { *a < *b };
+
+        let select_pos : fn(usize, &(i64, usize))-> usize = | idx, best | { best.1 };
+
+        let ans : Tord = self.calc_ord(&zerogen, calc_score, cmp, select_pos);
+
+        ans 
+    }
 }

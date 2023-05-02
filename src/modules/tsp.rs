@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 type Tpoint = super::point::Tpoint;
 pub type Tord = Vec<usize>;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Tsp {
     pub size : usize,
     pub points : Vec<Point>,

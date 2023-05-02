@@ -12,6 +12,8 @@ use modules::tsp::*;
 use modules::opttour::OptTour;
 use modules::segmenttree::SegmentTree;
 
+use crate::modules::construct::Insertion;
+
 fn main() {
 
     // let problem : ProblemPath = ProblemPath::new("berlin52".to_string());
@@ -29,10 +31,21 @@ fn main() {
     println!();
     println!("Kruskal score = {}", tsp.calcScore(&ord).unwrap());
 
-    let mut insr: Tord = construct::insertion(&tsp);
+    let mut insr: Tord = construct::insertion_demo(&tsp);
 
     for i in insr.iter() { print!("{} ", i); } println!();
-    println!("Insertion score = {}", tsp.calcScore(&insr).unwrap());
+    println!("Insertion demo score = {}", tsp.calcScore(&insr).unwrap());
+
+    let mut tmp : Insertion<i64> = Insertion::new(&tsp);
+    let tmp_ord : Tord = tmp.calc_nearest();
+
+    println!("");
+    for i in tmp_ord.iter() {
+        print!("{} ", i);
+    }
+    println!();
+    let tmp_score = tsp.calcScore(&tmp_ord).unwrap();
+    println!("Insertion(nearest) score = {}", tmp_score);
 
     // let ord = construct::nearest_all(&tsp);
     // let score = tsp.calcScore(&ord).unwrap();

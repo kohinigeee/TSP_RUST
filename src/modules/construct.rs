@@ -144,63 +144,93 @@ pub fn insertion_demo (tsp : &Tsp ) -> Tord {
         selected_cnt += 1;
         selected[idx] = true;
     }
-
+    
     let mut idx = next[0];
     let mut ans : Tord = vec![idx];
-
+    
     while idx != 0 {
         ans.push(next[idx]);
         idx = next[idx];
     }
-
+    
     ans
 }
 
 pub struct Insertion<T: Clone> {
-    pub tsp : Tsp,
-    pub selected_points : Vec<usize>,
-    pub next : Vec<usize>,
-    pub scores : Vec<(T,usize)>,
+    tsp : Tsp,
+    selected_points : Vec<usize>,
+    next : Vec<usize>,
+    prev : Vec<usize>,
+    scores : Vec<(T,usize)>,
 }
 
 impl<T : Clone> Insertion<T> {
     pub fn new(tsp_inst: &Tsp ) -> Insertion<T> {
         let mut selected_points: Vec<usize> = vec![];
         let mut next : Vec<usize> = vec![];
+        let mut prev : Vec<usize> = vec![];
         let mut scores : Vec<(T,usize)> = vec![];
         let tsp : Tsp = tsp_inst.clone();
-
-        Insertion { tsp , selected_points, next,  scores}
+        
+        Insertion { tsp , selected_points, next, prev, scores}
     }
 }
 
-// calc_score : a:=対象のidx, b:=更新時のペアのidx
 
+type init_points<T> = fn(&mut Insertion<T>)->Vec<usize>;
+type update_score_fn<T> = fn(&mut Insertion<T>, usize)->(); // usize : 新しく追加された頂点の番号
+type cmp_fn<T> = fn(&T, &T)->bool;
+type select_pos_fn<T> = fn(&mut Insertion<T>, usize, &(T, usize))->usize;
+
+
+impl<T : Clone> Insertion<T> {
+    const init_poins_nearest : init_points<T> = |sel| {
+        let mut ans : Vec<usize> = vec![];
+        let mut min_score = (1i64<<60);
+        let n = sel.tsp.size;
+
+        for i in 0..n {
+            for j in i+1..n {
+                let dis1 = Point::dis(&sel.tsp.points[i], &sel.tsp.points[j]);
+                for k in j+1 .. n {
+                    let dis2 = Point::dis(&sel.tsp.points[j], &sel.tsp.points[k]);
+                    let dis3 = Point::dis(&sel.tsp.points[i], &sel.tsp.points[k]);
+
+                    let sum = dis1+dis2+dis3;
+                    if min_score > sum {
+                        ans = vec![i,j,k];
+                        min_score = sum;
+                    }
+                }
+            }
+        }
+        ans
+    }; 
+}
+
+// calc_score : a:=対象のidx, b:=更新時のペアのidx
 impl<T: Clone> Insertion<T>{
-   pub fn calc_ord( &mut self, zerogen : &T, calc_score : impl Fn( &mut Insertion<T>, usize, usize)-> T, cmp : impl Fn( &T, &T,)->bool, select_pos : impl Fn( usize, &(T, usize))-> usize ) -> Tord
+   pub fn calc_ord( &mut self, zerogen : &T, init_points : impl Fn(&mut Insertion<T>)->Vec<usize>, update_score : impl Fn( &mut Insertion<T>, usize), cmp : impl Fn( &T, &T,)->bool, select_pos : impl Fn( &mut Insertion<T>, usize, &(T, usize))-> usize ) -> Tord
     {  
     let ans : Tord = vec![];
     let n  = self.tsp.size;
 
-    self.selected_points = vec![0,1,2];
+    self.selected_points = init_points(self);
     self.next = vec![0; n];
+    self.prev = vec![0; n];
     self.scores = vec![(zerogen.clone(), n+1); n];
 
-    for i in 0..n { self.next[i] = i; }
+    for i in 0..n { self.next[i] = i; self.prev[i] = i; }
 
-    self.next[self.selected_points[0]] = self.selected_points[1];
-    self.next[self.selected_points[1]] = self.selected_points[2];
-    self.next[self.selected_points[2]] = self.selected_points[0];
-
-    for i in 0..self.selected_points.len() {
-        let pno = self.selected_points[i];
-        for j in 0..n {
-            let tmp_score : T = calc_score(self, j, pno);
-            if cmp( &tmp_score, &self.scores[j].0 ) {
-                self.scores[j] = (tmp_score, pno);
-            }
-        }
+    for i in 0..3 {
+        self.next[self.selected_points[i]] = self.selected_points[(i+1)%3];
+        self.prev[self.selected_points[i]] = self.selected_points[(i+2)%3];
     }
+
+
+    update_score(self, self.selected_points[0]);
+    update_score(self, self.selected_points[1]);
+    update_score(self, self.selected_points[2]);
 
     let mut selected_cnt : usize = 3;
     while selected_cnt < n {
@@ -215,16 +245,15 @@ impl<T: Clone> Insertion<T>{
             }
         }
         
-        let prev_dix = select_pos(idx, &best_score);
+        let prev_dix = select_pos(self, idx, &best_score);
+        let next_dix = self.next[prev_dix];
         self.next[idx] = self.next[prev_dix];
         self.next[prev_dix] = idx;
 
-        for j in 0..n {
-            let tmp_score : T = calc_score(self, j, idx);
-            if cmp(&tmp_score, &self.scores[j].0) {
-                self.scores[j] = (tmp_score, idx);
-            }
-        }
+        self.prev[idx] = prev_dix;
+        self.prev[next_dix] = idx;
+
+        update_score(self, idx);
 
         selected_cnt += 1;
     }
@@ -241,20 +270,99 @@ impl<T: Clone> Insertion<T>{
    } 
 }
 
+
 impl Insertion<i64> {
+    // 都市選択：最近  挿入位置：最近都市の後
     pub fn calc_nearest(&mut self) -> Tord {
         let zerogen : i64 = (1i64<<60);
 
-        let calc_score : fn(&mut Insertion<i64>, usize, usize)->i64 = | sel, a, b | {
-            Point::dis(&sel.tsp.points[a], &sel.tsp.points[b])
+        let update_score : update_score_fn<i64> = | sel, idx | {
+            let n = sel.tsp.size;
+            for i in 0..n {
+                let dis = Point::dis(&sel.tsp.points[i], &sel.tsp.points[idx]);
+                if sel.scores[i].0 > dis {
+                    sel.scores[i] = (dis, idx);
+                }
+            }
         };
 
-        let cmp : fn(&i64, &i64)->bool = |a, b| { *a < *b };
+        let cmp : cmp_fn<i64> = |a, b| { *a < *b };
 
-        let select_pos : fn(usize, &(i64, usize))-> usize = | idx, best | { best.1 };
+        let select_pos : select_pos_fn<i64> = | sel, idx, best | { best.1 };
 
-        let ans : Tord = self.calc_ord(&zerogen, calc_score, cmp, select_pos);
+        let ans : Tord = self.calc_ord(&zerogen, Insertion::init_poins_nearest, update_score, cmp, select_pos);
 
         ans 
     }
+
+
+    // 都市選択：最遠 挿入位置:最も近い都市の後
+    pub fn calc_farthest(&mut self) -> Tord {
+        let zerogen : i64 = 0;
+
+        let update_score : update_score_fn<i64> = |sel, idx| {
+            let n = sel.tsp.size;
+            for i in 0..n {
+                let dis = Point::dis(&sel.tsp.points[i], &sel.tsp.points[idx]);
+                if dis > sel.scores[i].0 {
+                    sel.scores[i] = (dis, idx);
+                }
+            }
+        };
+
+        let cmp : cmp_fn<i64> = |a, b| { *a > *b };
+
+        let select_pos : select_pos_fn<i64> = | sel, idx, best | { 
+            let n = sel.tsp.size;
+            let mut minidx = n+1;
+            let mut mindis : i64 = (1i64<<60);
+            for i in 0..n {
+                if i == idx || sel.next[i] == i { continue; }
+                let dis = Point::dis(&sel.tsp.points[idx], &sel.tsp.points[i]);
+                if dis < mindis {
+                    minidx = i;
+                    mindis = dis;
+                }
+            }
+            minidx
+         };
+
+         let ans = self.calc_ord(&zerogen, Insertion::init_poins_nearest,update_score, cmp, select_pos);
+         ans
+    }
+
+    // 都市選択: 最廉　挿入場所：最廉
+    pub fn calc_diff(&mut self) -> Tord {
+        let zerogen : i64 = (1i64<<60);
+
+        let update_score : update_score_fn<i64> = |sel, new_idx| {
+            let n = sel.tsp.size;
+            let zerogen = (1i64<<60);
+            sel.scores = vec![];
+
+            for i in 0..n { sel.scores.push((zerogen, n+1)); }
+            for i in 0..n {
+                if sel.next[i] != i { continue; }
+                for j in sel.selected_points.iter() {
+                    let next_idx = sel.next[*j];
+                    let dis1 = Point::dis(&sel.tsp.points[next_idx], &sel.tsp.points[*j]);
+                    let dis2 = Point::dis(&sel.tsp.points[i], &sel.tsp.points[*j]); 
+                    let dis3 = Point::dis(&sel.tsp.points[i], &sel.tsp.points[new_idx]); 
+                    let diff = dis2+dis3-dis1;
+                    if diff < sel.scores[i].0 {
+                        sel.scores[i] = (diff, *j);
+                    }
+                }
+            }
+        };
+
+        let cmp : cmp_fn<i64> = |a, b| { a < b };
+
+        let select_pos : select_pos_fn<i64> = | sel, idx, best | { best.1};
+
+        let ans = self.calc_ord(&zerogen, Insertion::init_poins_nearest,update_score, cmp, select_pos);
+
+        ans
+    }
+
 }

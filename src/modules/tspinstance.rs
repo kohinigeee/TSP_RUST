@@ -1,7 +1,9 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use log::{info};
+use anyhow::{anyhow, Context, Result};
 
+use super::myerror::Myerror;
 use super::point::{Point, self};
 
 type Tpoint = super::point::Tpoint;
@@ -51,7 +53,7 @@ impl TspInstance {
 }
 
 impl TspInstance {
-    pub fn fromFile( fpath : &String) -> Result<TspInstance,  Box<dyn std::error::Error>> {
+    pub fn fromFile( fpath : &String) -> anyhow::Result<TspInstance> {
 
         let mut name = String::new(); 
         let mut comment = String::new(); 
@@ -60,7 +62,18 @@ impl TspInstance {
         let mut dimension : i32 = 0;
         let mut points : Vec<Point> = vec![];
 
-    for result in BufReader::new(File::open(fpath)?).lines() {
+        let f = File::open(fpath);
+        match f {
+            Err(e) => {
+                let fname = fpath.clone();
+                let tmp = 
+                return Err(Myerror::MyInputFileError { fpath: fname, message: "can't open file".to_string()}.into());
+            },
+            _ => {}
+        }
+
+
+    for result in BufReader::new(f.unwrap()).lines() {
         let l : String = result?;
         let sv : Vec<String> = l.trim().split_whitespace().map(|e| e.to_string()).collect();
 

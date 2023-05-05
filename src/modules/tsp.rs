@@ -8,12 +8,14 @@ pub type Tord = Vec<usize>;
 pub struct Tsp {
     pub size : usize,
     pub points : Vec<Point>,
+    pub center : Point,
 }
 
 //静的メンバ関数
 impl Tsp {
     pub fn new( size : usize, points : Vec<Point> ) -> Tsp {
-        Tsp { size, points }
+        let center = Point::calc_center(&points);
+        Tsp { size, points, center }
     }
 
     pub fn from( inst : &TspInstance ) -> Tsp {

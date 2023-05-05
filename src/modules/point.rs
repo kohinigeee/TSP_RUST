@@ -18,4 +18,17 @@ impl Point {
         let ydis = p1.y-p2.y;
         return xdis*xdis+ydis*ydis;
     }
+
+    pub fn calc_center( points : &Vec<Point> ) -> Point {
+        let mut sumx = 0;
+        let mut sumy = 0;
+        let n : i64 = points.len() as i64;
+
+        for p in points.iter() {
+            sumx += p.x;
+            sumy += p.y;
+        }
+
+        Point::new(sumx/n, sumy/n)
+    }
 }

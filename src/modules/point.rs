@@ -19,6 +19,10 @@ impl Point {
         return xdis*xdis+ydis*ydis;
     }
 
+    pub fn dis_sqrt( p1 : &Point , p2 : &Point ) -> Tpoint {
+        ( (Point::dis(p1,p2) as f64).sqrt()+0.5) as Tpoint
+    }
+
     pub fn calc_center( points : &Vec<Point> ) -> Point {
         let mut sumx = 0;
         let mut sumy = 0;
@@ -31,4 +35,23 @@ impl Point {
 
         Point::new(sumx/n, sumy/n)
     }
+}
+
+pub fn nearest_point( points : &Vec<Point>, p : &Point ) -> usize {
+    if points.is_empty() {
+        return 1;
+    }
+
+    let mut idx = 0;
+    let mut min_dis = Point::dis(p, &points[idx]);
+
+    for (i, tmp_p) in points.iter().enumerate() {
+        let tmp_dis = Point::dis(p, tmp_p);
+        if tmp_dis < min_dis {
+            idx = i;
+            min_dis = tmp_dis;
+        }
+    } 
+
+    return idx;
 }

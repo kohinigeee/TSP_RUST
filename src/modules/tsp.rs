@@ -39,14 +39,13 @@ impl Tsp {
         true
     }
 
-    pub fn calcScore( &self, ord : &Tord ) -> Option<f64> {
-        if !self.isCorrect((ord)) { return None; }
-        let mut ans : f64 = 0.0;
+    pub fn calcScore( &self, ord : &Tord ) -> Option<i64> {
+        if !self.isCorrect(ord) { return None; }
+        let mut ans : i64 = 0;
 
         for (i, v) in ord.iter().enumerate() {
             let nextp = (i+1)%self.size;
-            let dis : Tpoint = Point::dis(&self.points[*v], &self.points[ord[nextp]]);
-            ans += (dis as f64).sqrt();
+            ans += Point::dis_sqrt(&self.points[*v], &self.points[ord[nextp]]);
         }
         Some(ans)
     } 

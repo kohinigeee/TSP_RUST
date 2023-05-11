@@ -8,12 +8,12 @@ type Tord = super::tsp::Tord;
 #[derive(Debug)]
 pub struct OptTour {
     pub size : u32,
-    pub score : f64,
+    pub score : i64,
     pub ord : Tord,
 }
 
 impl OptTour {
-    pub fn new( size : u32, score : f64, ord : Vec<usize> ) -> OptTour {
+    pub fn new( size : u32, score : i64, ord : Vec<usize> ) -> OptTour {
         OptTour{ size, score , ord}
     }
     

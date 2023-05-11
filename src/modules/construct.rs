@@ -1,5 +1,7 @@
-use super::{tsp::*, point::Tpoint, point::Point};
+use super::{tsp::*, point::Tpoint, point::Point, point::nearest_point};
 use log::{info, debug, Level};
+
+use std::collections::VecDeque;
 
 pub fn nearest( inst : &Tsp, start : usize ) -> Tord {
     let n = inst.size;
@@ -28,6 +30,55 @@ pub fn nearest( inst : &Tsp, start : usize ) -> Tord {
     ans
 }
 
+pub fn nearest_twoedge( tsp : &Tsp, start : usize ) -> Tord {
+    let mut ans : VecDeque<usize> = VecDeque::new();
+    let mut idxs : Vec<usize>  = vec![0; tsp.size];
+    let n = tsp.size;
+
+    for i in 0..tsp.size { idxs[i] = i; }
+
+    let idxs_size = idxs.len();
+    ans.push_back(start);
+    idxs.swap(start, idxs_size-1);
+    idxs.pop();
+
+
+    for i in 1..n {
+        let top_vertex = *ans.front().unwrap();
+        let tail_vertex = *ans.back().unwrap();
+        let mut min_idx = 0;
+        let mut dir = 0;
+        let mut min_dis = Point::dis(&tsp.points[idxs[min_idx]], &tsp.points[top_vertex]);
+
+        for (j, v) in idxs.iter().enumerate() {
+            let tmp_dis = Point::dis(&tsp.points[*v], &tsp.points[top_vertex]);
+            if min_dis > tmp_dis {
+                min_dis = tmp_dis;
+                min_idx = j;
+                dir = 0;
+            }
+
+            let tmp_dis = Point::dis(&tsp.points[*v], &tsp.points[tail_vertex]);
+            if min_dis > tmp_dis {
+                min_dis = tmp_dis;
+                min_idx = j;
+                dir = 1;
+            }
+        }
+
+        if dir == 0 { ans.push_front(idxs[min_idx]); }
+        else { ans.push_back(idxs[min_idx]); }
+
+        let idxs_size = idxs.len();
+        idxs.swap(min_idx, idxs_size-1);
+        idxs.pop();
+    }
+
+    let ord : Tord = ans.into_iter().collect(); 
+    ord
+}
+
+
 pub fn nearest_all( inst : &Tsp ) -> Tord {
     let mut ans : Tord = nearest(inst, 0);
     let mut score  = inst.calcScore(&ans);
@@ -36,7 +87,24 @@ pub fn nearest_all( inst : &Tsp ) -> Tord {
         let ans_tmp : Tord = nearest(inst, i);
         let score_tmp = inst.calcScore(&ans_tmp);
 
-        if score_tmp < score {ans = ans_tmp;}
+        if score_tmp < score {
+            score = score_tmp;
+            ans = ans_tmp;}
+    }
+    ans
+}
+
+pub fn nearest_twoedge_all( inst : &Tsp ) -> Tord {
+    let mut ans : Tord = nearest_twoedge(inst, 0);
+    let mut score  = inst.calcScore(&ans);
+
+    for i in 1..inst.size {
+        let ans_tmp : Tord = nearest_twoedge(inst, i);
+        let score_tmp = inst.calcScore(&ans_tmp);
+
+        if score_tmp < score {
+            score = score_tmp;
+            ans = ans_tmp;}
     }
     ans
 }
@@ -208,7 +276,7 @@ impl<T : Clone> Insertion<T> {
         ans
     }; 
 
-    //初期化：重心?から近いやつ3つ
+    //初期化：平均点から近いやつ3つ
     pub const init_points_center : init_points<T> = |sel | {
         let mut sumx = 0;
         let mut sumy = 0;
@@ -435,4 +503,141 @@ impl Insertion<i64> {
         self.calc_ord(&zerogen, init_fn, update_fn, cmp_fn, select_fn)
     }
 
+}
+
+pub fn divide4( tsp : &Tsp, center : &Point ) -> Tord {
+    let mut right_up : Vec<Point> = vec![];
+    let mut right_up_idx : Vec<usize> = vec![];
+
+    let mut right_down : Vec<Point> = vec![];
+    let mut right_down_idx : Vec<usize> = vec![];
+
+    let mut left_up : Vec<Point> = vec![];
+    let mut left_up_idx: Vec<usize> = vec![];
+
+    let mut left_down : Vec<Point> = vec![];
+    let mut left_down_idx: Vec<usize> = vec![];
+
+    for (i, p)  in tsp.points.iter().enumerate() {
+        if center.x <= p.x {
+            if center.y <= p.y {
+                right_up.push(p.clone());
+                right_up_idx.push(i);
+            } else {
+                right_down.push(p.clone());
+                right_down_idx.push(i);
+            }
+        } else {
+            if center.y <= p.y {
+                left_up.push(p.clone());
+                left_up_idx.push(i);
+            } else {
+                left_down.push(p.clone());
+                left_down_idx.push(i);
+            }
+        }
+    }
+
+    let mut tsps : Vec<Tsp> = vec![];
+    let mut origin_idxs : Vec<Vec<usize>> = vec![];
+    if !right_up.is_empty() {
+        tsps.push(Tsp::new(right_up.len(), right_up));
+        origin_idxs.push(right_up_idx);
+    } 
+    if !left_up.is_empty() {
+        tsps.push(Tsp::new(left_up.len(), left_up));
+        origin_idxs.push(left_up_idx);
+    } 
+    if !left_down.is_empty() {
+        tsps.push(Tsp::new(left_down.len(), left_down));
+        origin_idxs.push(left_down_idx);
+    } 
+    if !right_down.is_empty() {
+        tsps.push(Tsp::new(right_down.len(), right_down));
+        origin_idxs.push(right_down_idx);
+    } 
+
+    let mut ords : Vec<Tord> = vec![];
+    for t in tsps.iter() {
+        ords.push(nearest_all(t));
+    }
+    if ords.len() == 1 {
+        println!("ords.len() == 1");
+        return ords[0].clone();
+    }
+
+    let mut connect_edges : Vec<(usize,usize)> = vec![];
+
+    let mut min_score = (1i64<<60);
+    let mut opt_edges: Vec<(usize, usize)> = vec![];
+
+    //貪欲的に連結の仕方を求める
+    for i in 0..ords[0].len() {
+        let mut edges : Vec<(usize,usize)> = vec![];
+
+        let mut now_idx = i; //探索中のパスの頂点のインデックス
+        for j in 0..ords.len()-1 {
+            let vertex_idx = ords[j][now_idx];
+            let ords_idx = (j+1)%ords.len(); //探索対象のパスのインデックス
+            let nearest_idx = nearest_point(&tsps[ords_idx].points, &tsps[j].points[vertex_idx]);
+            edges.push((now_idx, nearest_idx)); //最近の頂点のインデックス
+            let nearest_idx_in_order = find_value(&ords[ords_idx], &nearest_idx).unwrap();//最近の頂点のパス上でのインデックス
+
+
+            let ord_size = ords[ords_idx].len();
+            let next_front_idx = (nearest_idx_in_order + ord_size -1 )% ord_size;
+            now_idx = next_front_idx;
+        }
+
+        let ord_size = ords[0].len() as i64;
+        let pre_idx = ( ( i as i64 -1 + ord_size ) % ord_size ) as usize;
+        edges.push((now_idx, pre_idx));
+
+        let mut dif : i64 = 0;
+        for ( i, edge) in edges.iter().enumerate() {
+            let next_idx = (i+1)%tsps.len();
+            let vertex_idx_to = ords[i][edge.0];
+            let vertex_idx_end = ords[next_idx][edge.1];
+            dif += Point::dis_sqrt(&tsps[i].points[vertex_idx_to], &tsps[next_idx].points[vertex_idx_end]);
+
+            let ord_size = ords[i].len() as i64;
+            let pre_idx_in_ord = ( (edge.0 as i64 -1 + ord_size )% ord_size ) as usize;
+            let vertex_idx_end2 = ords[i][pre_idx_in_ord];
+            dif -= Point::dis_sqrt(&tsps[i].points[vertex_idx_to], &tsps[i].points[vertex_idx_end2]);
+        }
+
+        if dif < min_score {
+            min_score = dif;
+            opt_edges = edges;
+        }
+    }
+
+    //opet_edgesによって連結の仕方が求まったため、パスを復元
+    for i in origin_idxs.iter() {
+        let n = i.len();
+        println!("origin_idx len = {}", n);
+    }
+    let mut ans : Tord = vec![];
+    for (i, edge) in opt_edges.iter().enumerate() {
+        let mut top_idx = edge.1;
+        let ord_idx = (i+1)%ords.len();
+        let ord_size = ords[ord_idx].len();
+
+        for i in 0..ord_size {
+            let vertex_idx = ords[ord_idx][top_idx];
+            ans.push(origin_idxs[ord_idx][vertex_idx]);
+            top_idx = (top_idx+1)%ord_size;
+        }
+    }
+
+    return ans;
+}
+
+fn find_value<T: Eq>( values : &Vec<T>, target : &T )-> Option<usize> {
+    for (i, v) in values.iter().enumerate() {
+        if *v == *target {
+            return Some(i);
+        }
+    }
+    None
 }

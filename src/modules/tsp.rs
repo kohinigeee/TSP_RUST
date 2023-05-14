@@ -27,12 +27,18 @@ impl Tsp {
 //メンバ関数
 impl Tsp { 
     pub fn isCorrect( &self, ord : &Tord ) -> bool {
-        if  ord.len() != self.size { return false; }
+        if  ord.len() != self.size { 
+            println!("Error : Length != problems size");
+            return false; }
         let mut cnts : Vec<usize> = vec![0; self.size];
 
         for  v in ord.iter() {
-            if *v >= self.size { return false; }
-            if cnts[*v] != 0 { return false; }
+            if *v >= self.size { 
+                println!("Error: out of problem size");
+                return false; }
+            if cnts[*v] != 0 { 
+                println!("Error: visited same vertex");
+                return false; }
             cnts[*v] += 1;
         }
 

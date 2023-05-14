@@ -15,8 +15,9 @@ pub struct ProblemPath {
 
 impl ProblemPath
 {
-    pub fn new( name : String ) -> ProblemPath {
-        ProblemPath { name } 
+    pub fn new( p_name : &String ) -> ProblemPath {
+        let name = p_name.clone();
+        ProblemPath { name }
     }    
 
     pub fn getInstPath(&self) -> String {

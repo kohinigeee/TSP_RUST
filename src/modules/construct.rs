@@ -1,31 +1,37 @@
 use super::{tsp::*, point::Tpoint, point::Point, point::nearest_point};
 use log::{info, debug, Level};
+use rand::Rng;
 
 use std::collections::VecDeque;
 
 pub fn nearest( inst : &Tsp, start : usize ) -> Tord {
     let n = inst.size;
     let mut ans : Tord = vec![start];
-    let mut visited : Vec<bool> = vec![false; n];
+    let mut idxs : Vec<usize> = vec![0; n];
+    
+    for i in 0..n { idxs[i] = i; }
+    idxs.swap(start, n-1);
+    idxs.pop();
 
     for _ in 1..inst.size {
         let front = ans.last().unwrap();
-        let mut minId : usize = n;
+        let mut minidx: usize = n;
         let mut minv : Tpoint = -1;
 
-        visited[*front] = true;
-        for i in 0..n {
-            if visited[i] { continue;}
-            let dis = Point::dis(&inst.points[*front], &inst.points[i]);
+        for (i, v) in idxs.iter().enumerate() {
+            let dis = Point::dis(&inst.points[*front], &inst.points[*v]);
             if minv < 0 {
-                minId = i;
+                minidx = i;
                 minv = dis;
             } else if dis < minv {
-                minId = i;
+                minidx = i;
                 minv = dis;
             }
         }
-        ans.push(minId);
+        ans.push(idxs[minidx]);
+        let tmp_size = idxs.len();
+        idxs.swap(minidx, tmp_size-1);
+        idxs.pop();
     }
     ans
 }
@@ -441,7 +447,7 @@ impl<T: Clone> Insertion<T>{
                 best_score = (*sco).clone();
             }
         }
-        
+
         let prev_dix = select_pos(self, idx, &best_score);
         let next_dix = self.next[prev_dix];
         self.next[idx] = self.next[prev_dix];
@@ -449,6 +455,8 @@ impl<T: Clone> Insertion<T>{
 
         self.prev[idx] = prev_dix;
         self.prev[next_dix] = idx;
+
+        self.selected_points.push(idx);
 
         update_score(self, idx);
 
@@ -640,4 +648,149 @@ fn find_value<T: Eq>( values : &Vec<T>, target : &T )-> Option<usize> {
         }
     }
     None
+}
+
+fn lower_bound<T : PartialOrd >( array : &Vec<T>, value : &T ) -> Option<usize> {
+    let n = array.len();
+
+    for i in 0..n {
+        if *value <= array[i] {
+            return Some(i);
+        }
+    }
+    return None
+}
+
+pub fn psedo_nearest( tsp : &Tsp, h : usize, w : usize, start : usize) -> Tord {
+    let mut min_x = tsp.points[0].x;
+    let mut min_y = tsp.points[0].y;
+    let mut max_x = min_x;
+    let mut max_y = min_y;
+
+    for p in tsp.points.iter() {
+        min_x = min_x.min(p.x);
+        max_x = max_x.max(p.x);
+        min_y = min_y.min(p.y);
+        max_y = max_y.max(p.y);
+    }
+
+    let dx = (max_x-min_x)/(w as i64) +1;
+    let dy = (max_y-min_y)/(h as i64) +1;
+
+    let mut matrix : Vec<Vec<Vec<usize>>> = vec![vec![vec![]; w]; h];
+    let mut matrix_idxs : Vec<(usize,usize)> = vec![]; // .0: r , .1: c
+    for (i,p) in tsp.points.iter().enumerate() {
+        let c_idx = ((p.x - min_x)/dx) as usize;
+        let r_idx = ((p.y - min_y)/dy) as usize;
+        matrix[r_idx][c_idx].push(i);
+        matrix_idxs.push((r_idx, c_idx));
+    }
+
+    let mut ans : Tord = vec![start];
+    let inf = (1i64<<60);
+    let dirx = vec![0, -1, 0, 1];
+    let diry = vec![-1, 0, 1, 0];
+
+    matrix[matrix_idxs[start].0][matrix_idxs[start].1].retain( |x| *x != start);
+
+    for i in 1..tsp.size {
+        let vertex = *ans.last().unwrap();
+        let pos = matrix_idxs[vertex];
+
+        let mut min_dis = inf;
+        let mut min_idx = tsp.size;
+        let mut min_idx_in_matrix = tsp.size;
+        // println!("origin pos = ({}, {})", pos.0, pos.1);
+
+        if ( !matrix[pos.0][pos.1].is_empty() ) {
+            for ( i, vertex_idx ) in matrix[pos.0][pos.1].iter().enumerate() {
+            let tmp_dis = Point::dis(&tsp.points[*vertex_idx], &tsp.points[vertex]);
+            if tmp_dis < min_dis {
+                min_dis = tmp_dis;
+                min_idx = *vertex_idx;
+                min_idx_in_matrix = i;
+            }
+            }
+
+            ans.push(min_idx);
+            let tmp_matrix_idx = matrix_idxs[min_idx];
+            let size = matrix[tmp_matrix_idx.0][tmp_matrix_idx.1].len();
+            matrix[tmp_matrix_idx.0][tmp_matrix_idx.1].swap(min_idx_in_matrix, size-1);
+            matrix[tmp_matrix_idx.0][tmp_matrix_idx.1].pop();
+            continue;
+        }
+
+        for i in 1.. w.max(h)+3 {
+            let mut st_pos : (i32, i32) = ((pos.0+i) as i32, (pos.1+i) as i32);
+            let d : i32 = i as i32 *2;
+
+            for j in 0..4 {
+                for _ in 0..d {
+                    st_pos = (st_pos.0+diry[j], st_pos.1+dirx[j]);
+                    if st_pos.0 < 0 || st_pos.0 >= h as i32 || st_pos.1 < 0 || st_pos.1 >= w as i32 { continue;}
+                    let now_r = st_pos.0 as usize;
+                    let now_c = st_pos.1 as usize;
+
+                    if matrix[now_r][now_c].len() == 0 { continue; }
+                    for ( i, vertex_idx ) in matrix[now_r][now_c].iter().enumerate() {
+                        let tmp_dis = Point::dis(&tsp.points[*vertex_idx], &tsp.points[vertex]);
+                        if tmp_dis < min_dis {
+                            min_dis = tmp_dis;
+                            min_idx = *vertex_idx;
+                            min_idx_in_matrix = i;
+                        }
+                    }
+                }
+            } 
+
+            if min_dis != inf {
+                ans.push(min_idx);
+                let tmp_matrix_idx = matrix_idxs[min_idx];
+                let size = matrix[tmp_matrix_idx.0][tmp_matrix_idx.1].len();
+                // println!("r = {}, c = {}, vertex = {}, size = {}, min_idx_in_matrix = {}", tmp_matrix_idx.0, tmp_matrix_idx.1, min_idx, size, min_idx_in_matrix);
+                matrix[tmp_matrix_idx.0][tmp_matrix_idx.1].swap(min_idx_in_matrix, size-1);
+                matrix[tmp_matrix_idx.0][tmp_matrix_idx.1].pop();
+                break;
+            }
+        }
+    }
+
+    ans
+}
+
+pub fn psedo_nearest_all ( tsp : &Tsp, h : usize, w : usize ) -> Tord {
+    let mut ans : Tord = psedo_nearest(tsp, h, w, 0);
+    let mut score  = tsp.calcScore(&ans);
+
+    for i in 1..tsp.size {
+        if i % 10 == 0 { println!("i = {}", i );}
+        let ans_tmp : Tord = psedo_nearest(&tsp, h, w, i);
+        let score_tmp = tsp.calcScore(&ans_tmp);
+
+        if score_tmp < score {
+            score = score_tmp;
+            ans = ans_tmp;}
+    }
+    ans
+}
+
+pub fn random_psedo ( tsp : &Tsp, h : usize, w: usize, n : usize ) -> Tord {
+    let mut rng = rand::thread_rng();
+    let size = tsp.size;
+
+    let mut ans : Tord = psedo_nearest(tsp, h, w, rng.gen_range(0,  size));
+    let mut min_score = tsp.calcScore(&ans).unwrap();
+
+    for i in 1..n {
+        let no = rng.gen_range(0, n);
+        let tmp = psedo_nearest(tsp, h, w, no);
+        let tmp_score = tsp.calcScore(&tmp).unwrap();
+        if min_score > tmp_score {
+            min_score = tmp_score;
+            ans = tmp;
+        }
+    }
+
+    ans
+
 }

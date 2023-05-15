@@ -24,7 +24,6 @@ use modules::segmenttree::SegmentTree;
 
 use crate::modules::construct::{Insertion, insertion_demo};
 
-
 fn main() -> anyhow::Result<()>{
 
     let mut opt_scores : BTreeMap<String, i64> = BTreeMap::new();
@@ -48,15 +47,15 @@ fn main() -> anyhow::Result<()>{
     // println!("opt score = {}\n", opttour.score);
     // println!("{:?}\n", opttour);
 
-    let start = Instant::now();
-    let ord_near = construct::nearest(&tsp, 0);
-    // let ord_near = construct::nearest_all(&tsp);
-    let duration = start.elapsed();
-    let near_score = tsp.calcScore(&ord_near).unwrap();
-    println!("Nearest score = {}", near_score);
-    println!("Nearest score / Opt score = {}", near_score as f64 / opt_score as f64);
-    println!("Nearest time = {}", duration.as_millis());
-    println!("\n");
+    // let start = Instant::now();
+    // let ord_near = construct::nearest(&tsp, 0);
+    // // let ord_near = construct::nearest_all(&tsp);
+    // let duration = start.elapsed();
+    // let near_score = tsp.calcScore(&ord_near).unwrap();
+    // println!("Nearest score = {}", near_score);
+    // println!("Nearest score / Opt score = {}", near_score as f64 / opt_score as f64);
+    // println!("Nearest time = {}", duration.as_millis());
+    // println!("\n");
 
     // // let ord = construct::Kruskal(&tsp);
     // let krus_score = tsp.calcScore(&ord).unwrap();
@@ -64,29 +63,29 @@ fn main() -> anyhow::Result<()>{
     // println!("Kruskal score / Opt score = {}\n", ( krus_score as f64 / opttour.score as f64));
 
 
-    let start = Instant::now();
-    // let psed_ord = construct::psedo_nearest(&tsp,500, 500, 0);
-    let psed_ord = construct::psedo_nearest_all(&tsp, 500, 500);
-    // let psed_ord = construct::random_psedo(&tsp, 600, 600, 10);
-    let duration = start.elapsed();
-    let psed_score = tsp.calcScore(&psed_ord).unwrap();
-    println!("Psed Nearest score = {}", psed_score);
-    println!("Psed Nearest time = {}", duration.as_millis());
-    println!("Psed score / Opt score = {}", ( psed_score as f64 / opt_score as f64));
-    // println!("Psed score / Nerarest score = {}", ( psed_score as f64 / near_score as f64));
-    // println!("ord = {:?}", psed_ord);
-    println!();
+    // let start = Instant::now();
+    // // let psed_ord = construct::psedo_nearest(&tsp,500, 500, 0);
+    // let psed_ord = construct::psedo_nearest_all(&tsp, 500, 500);
+    // // let psed_ord = construct::random_psedo(&tsp, 600, 600, 10);
+    // let duration = start.elapsed();
+    // let psed_score = tsp.calcScore(&psed_ord).unwrap();
+    // println!("Psed Nearest score = {}", psed_score);
+    // println!("Psed Nearest time = {}", duration.as_millis());
+    // println!("Psed score / Opt score = {}", ( psed_score as f64 / opt_score as f64));
+    // // println!("Psed score / Nerarest score = {}", ( psed_score as f64 / near_score as f64));
+    // // println!("ord = {:?}", psed_ord);
+    // println!();
 
-    let near2_ord = construct::nearest(&tsp, psed_ord[0]);
-    let near2_score = tsp.calcScore(&near2_ord).unwrap();
-    println!("Nearest2 score = {}", near2_score);
-    println!("Nearest2 score / Opt score = {}", (near2_score as f64 / opt_score as f64));
-    println!();
+    // let near2_ord = construct::nearest(&tsp, psed_ord[0]);
+    // let near2_score = tsp.calcScore(&near2_ord).unwrap();
+    // println!("Nearest2 score = {}", near2_score);
+    // println!("Nearest2 score / Opt score = {}", (near2_score as f64 / opt_score as f64));
+    // println!();
 
-    println!("Nearest score = {}", near_score);
-    println!("Nearest score / Opt score = {}", near_score as f64 / opt_score as f64);
-    println!("Nearest time = {}", duration.as_millis());
-    println!();
+    // println!("Nearest score = {}", near_score);
+    // println!("Nearest score / Opt score = {}", near_score as f64 / opt_score as f64);
+    // println!("Nearest time = {}", duration.as_millis());
+    // println!();
 
     // let mut gosa_near = 0.0;
     // let mut time_near = 0;

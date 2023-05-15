@@ -2,7 +2,7 @@ use super::{tsp::*, point::Tpoint, point::Point, point::nearest_point};
 use log::{info, debug, Level};
 use rand::Rng;
 
-use std::collections::VecDeque;
+use std::{collections::{VecDeque, BinaryHeap}, cmp::Reverse};
 
 pub fn nearest( inst : &Tsp, start : usize ) -> Tord {
     let n = inst.size;
@@ -793,4 +793,79 @@ pub fn random_psedo ( tsp : &Tsp, h : usize, w: usize, n : usize ) -> Tord {
 
     ans
 
+}
+
+//start : 初期頂点
+//tansakusuu : 上から何個を次の探索範囲に利用するか
+//max_width : ビームの幅
+//max_depth : ビームの最大深度
+//honsu : ビームの本数
+pub fn chokudai_search( tsp : & Tsp, start : usize, tansakusu : usize, max_width : usize , max_depth : usize, honsu : usize ) -> Tord {
+    let mut ans : Tord = vec![start];
+    let mut score : i64 = 0;
+    let mut visit : Vec<bool> = vec![false; tsp.size];
+
+    visit[start] = true;
+    loop {
+        if  ans.len() >= tsp.size { break; }
+        let mut states : Vec<Vec<Tord>> = vec![vec![]; max_depth+1]; 
+        let mut depth_pq : Vec<BinaryHeap<Reverse<(i64, usize)>>> = vec![BinaryHeap::new(); max_depth+1];
+
+        let top = vec![*ans.last().unwrap()];
+        states[0].push(top);
+        depth_pq[0].push(Reverse((0,0)));
+
+        for _ in 0..honsu {
+            for depth in 0..max_depth {
+               if depth_pq[depth].is_empty() { continue; } 
+
+               let state_info = depth_pq[depth].pop().unwrap().0;
+               let top_ord = states[depth][state_info.1].clone();
+               let top_vertex = *top_ord.last().unwrap();
+               let cmp = | a : &usize, b : &usize | {
+                return Point::dis(&tsp.points[*a], &tsp.points[top_vertex]) > Point::dis(&tsp.points[*b], &tsp.points[top_vertex]);
+               };
+
+               //次の頂点の中でtansakusuu個の頂点を確保
+               let mut near_vertexs : BinaryHeap<(i64, usize)> = BinaryHeap::new();
+               for ( i, no ) in tsp.points.iter().enumerate() {
+                if visit[i] { continue; }
+                let p = ( Point::dis(&tsp.points[top_vertex], no), i);
+                if near_vertexs.len() < tansakusu {
+                    near_vertexs.push(p);
+                }
+
+
+                if p.0 >= near_vertexs.peek().unwrap().0 { continue; }
+                near_vertexs.push(p);
+                near_vertexs.pop();
+               }
+
+               while let Some(vertex) = near_vertexs.pop() {
+                let mut netxt_state = top_ord.clone();
+                netxt_state.push(vertex.1);
+
+                let tmp_state = ( state_info.0+Point::dis_sqrt(&tsp.points[vertex.1], &tsp.points[top_vertex]), states[depth+1].len() );
+                states[depth+1].push(netxt_state);
+                depth_pq[depth+1].push(Reverse(tmp_state));
+               }
+            }
+        }
+
+        let mut best_state = vec![];
+        for i in (0..max_depth+1).rev() {
+            if depth_pq[i].is_empty() { continue; }
+           let best_info = depth_pq[i].pop().unwrap().0;
+           best_state = states[i][best_info.1].clone();
+           break;
+        }
+        
+        for i in best_state.iter() { visit[*i] = true; }
+        for i in 1..best_state.len() {
+            ans.push(i);
+        }
+        ans.pop();
+    } 
+
+    ans
 }

@@ -24,26 +24,108 @@ use modules::segmenttree::SegmentTree;
 
 use crate::modules::construct::{Insertion, insertion_demo};
 
+fn exp_chokudai(tsp : &Tsp, opt_score : &i64 ) {
+    // let near_ord : Tord = construct::nearest_all(tsp);
+    let near_ord : Tord = construct::nearest(tsp,0);
+    let near_score = tsp.calcScore(&near_ord).unwrap();
+
+    let mut min_score = (1i64<<60);
+    let mut min_depth  = 0;
+    for i in 50..200 {
+    let chokudai_ord : Tord = construct::chokudai_search2(&tsp, 0,  3, 1, i, 80);
+    // let chokudai_ord : Tord = construct::chokudai_search2_all(&tsp, 10, 2,150, 150);
+    // println!("chokudai ord = {:?}", chokudai_ord);
+    let chokudai_score = tsp.calcScore(&chokudai_ord).unwrap();
+    if min_score > chokudai_score {
+        min_score = chokudai_score;
+        min_depth = i;
+    }
+
+    println!("Chokudai score( depth={} ) = {}", i, chokudai_score);
+    println!();
+    }
+
+    // let chokudai_ord : Tord = construct::chokudai_search2(&tsp, 0, 8, 1,140, 100);
+    // let chokudai_ord : Tord = construct::chokudai_search2_all(&tsp, 10, 2,150, 80);
+    // println!("chokudai ord = {:?}", chokudai_ord);
+    // let chokudai_score = tsp.calcScore(&chokudai_ord).unwrap();
+
+    println!("Chokudai score = {}, depth = {}", min_score, min_depth);
+    println!();
+
+    println!("Nearest score = {}", near_score);
+    println!();
+
+    println!("Opt score = {}", opt_score);
+}
+
+fn exp_beam(tsp : &Tsp, opt_score : &i64 ) {
+    // let near_ord : Tord = construct::nearest_all(tsp);
+    let near_ord : Tord = construct::nearest(tsp,0);
+    let near_score = tsp.calcScore(&near_ord).unwrap();
+    let mut min_score = (1i64<<60);
+    let mut min_depth  = 0;
+
+
+    for i in 30..265 {
+    let beam_ord : Tord = construct::beam_seach(&tsp, 0,  10, 10, i);
+    // let chokudai_ord : Tord = construct::chokudai_search2_all(&tsp, 10, 2,150, 150);
+    // println!("chokudai ord = {:?}", chokudai_ord);
+    let beam_score = tsp.calcScore(&beam_ord).unwrap();
+
+    if min_score > beam_score{
+        min_score = beam_score;
+        min_depth = i;
+    }
+    println!("Beam search score( depth={} ) = {}", i, beam_score);
+    println!();
+    }
+    // let chokudai_ord : Tord = construct::chokudai_search2(&tsp, 0, 8, 1,50, 100);
+    // // let chokudai_ord : Tord = construct::chokudai_search2_all(&tsp, 10, 2,150, 80);
+    // println!("chokudai ord = {:?}", chokudai_ord);
+    // let chokudai_score = tsp.calcScore(&chokudai_ord).unwrap();
+
+    // println!("Chokudai score = {}", chokudai_score);
+    // println!();
+    println!("Beam score = {}, depth = {}", min_score, min_depth);
+    println!();
+
+    println!("Nearest score = {}", near_score);
+    println!();
+
+    println!("Opt score = {}", opt_score);
+}
+
 fn main() -> anyhow::Result<()>{
 
     let mut opt_scores : BTreeMap<String, i64> = BTreeMap::new();
+    opt_scores.insert("a280".to_string(), 2579);
+    opt_scores.insert("att48".to_string(), 10628);
+    opt_scores.insert("berlin52".to_string(), 7542);
     opt_scores.insert("pr1002".to_string(),259045);
     opt_scores.insert("fnl4461".to_string(),182566);
     opt_scores.insert("brd14051".to_string(),469385);
     opt_scores.insert("pla33810".to_string(), 66048945);
+    opt_scores.insert("d493".to_string(), 35002);
+    opt_scores.insert("pr264".to_string(), 49135);
+    
 
 
-    let problem_name = "pla33810".to_string();
+    let problem_name = "pr264".to_string();
     let problem : ProblemPath = ProblemPath::new(&problem_name);
     let fpath : String = problem.getInstPath(); 
     let inst : TspInstance = TspInstance::fromFile(&fpath)?;
     let tsp : Tsp = Tsp::from(&inst);
 
     println!("Problem size = {}\n", tsp.size);
+    let opt_score = *opt_scores.get(&problem_name).unwrap();
+
+    // exp_chokudai(&tsp, &opt_score);
+    exp_beam(&tsp, &opt_score);
+
 
     // let optpath = problem.getOptPath();
     // let opttour : OptTour = OptTour::fromFile(&optpath, &tsp).unwrap();
-    let opt_score = *opt_scores.get(&problem_name).unwrap();
     // println!("opt score = {}\n", opttour.score);
     // println!("{:?}\n", opttour);
 

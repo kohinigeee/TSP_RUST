@@ -4,6 +4,15 @@ use rand::Rng;
 
 use std::{collections::{VecDeque, BinaryHeap}, cmp::Reverse};
 
+pub fn in_vector<T : Eq> ( v : &Vec<T>, value : &T ) -> Option<usize> {
+    for (i, j ) in v.iter().enumerate() {
+        if *value == *j {
+            return Some(i);
+        }
+    }
+    None
+}
+
 pub fn nearest( inst : &Tsp, start : usize ) -> Tord {
     let n = inst.size;
     let mut ans : Tord = vec![start];
@@ -802,43 +811,52 @@ pub fn random_psedo ( tsp : &Tsp, h : usize, w: usize, n : usize ) -> Tord {
 //honsu : ビームの本数
 pub fn chokudai_search( tsp : & Tsp, start : usize, tansakusu : usize, max_width : usize , max_depth : usize, honsu : usize ) -> Tord {
     let mut ans : Tord = vec![start];
-    let mut score : i64 = 0;
     let mut visit : Vec<bool> = vec![false; tsp.size];
 
     visit[start] = true;
     loop {
         if  ans.len() >= tsp.size { break; }
         let mut states : Vec<Vec<Tord>> = vec![vec![]; max_depth+1]; 
-        let mut depth_pq : Vec<BinaryHeap<Reverse<(i64, usize)>>> = vec![BinaryHeap::new(); max_depth+1];
+        let mut depth_pq : Vec<BinaryHeap<Reverse<(i64, usize)>>>  = vec![BinaryHeap::new(); max_depth+1];
 
         let top = vec![*ans.last().unwrap()];
         states[0].push(top);
         depth_pq[0].push(Reverse((0,0)));
 
+        let mut best_state = vec![];
+
         for _ in 0..honsu {
             for depth in 0..max_depth {
                if depth_pq[depth].is_empty() { continue; } 
-
                let state_info = depth_pq[depth].pop().unwrap().0;
                let top_ord = states[depth][state_info.1].clone();
                let top_vertex = *top_ord.last().unwrap();
-               let cmp = | a : &usize, b : &usize | {
-                return Point::dis(&tsp.points[*a], &tsp.points[top_vertex]) > Point::dis(&tsp.points[*b], &tsp.points[top_vertex]);
-               };
 
                //次の頂点の中でtansakusuu個の頂点を確保
                let mut near_vertexs : BinaryHeap<(i64, usize)> = BinaryHeap::new();
+
+            //    println!("top_ord = {:?}", top_ord);
                for ( i, no ) in tsp.points.iter().enumerate() {
                 if visit[i] { continue; }
+                if let Some(e) = in_vector( &top_ord, &i) {
+                    continue;
+                }
+
                 let p = ( Point::dis(&tsp.points[top_vertex], no), i);
                 if near_vertexs.len() < tansakusu {
                     near_vertexs.push(p);
+                    continue;
                 }
 
 
                 if p.0 >= near_vertexs.peek().unwrap().0 { continue; }
                 near_vertexs.push(p);
                 near_vertexs.pop();
+               }
+
+               if near_vertexs.is_empty() {
+                depth_pq[depth].push(Reverse(state_info));
+                break;
                }
 
                while let Some(vertex) = near_vertexs.pop() {
@@ -852,20 +870,258 @@ pub fn chokudai_search( tsp : & Tsp, start : usize, tansakusu : usize, max_width
             }
         }
 
-        let mut best_state = vec![];
         for i in (0..max_depth+1).rev() {
             if depth_pq[i].is_empty() { continue; }
            let best_info = depth_pq[i].pop().unwrap().0;
            best_state = states[i][best_info.1].clone();
            break;
         }
-        
+
         for i in best_state.iter() { visit[*i] = true; }
         for i in 1..best_state.len() {
-            ans.push(i);
+            ans.push(best_state[i]);
         }
-        ans.pop();
+
+        // println!("ans = {:?}", ans);
+        // println!("problem size = {}, ans.len = {}", tsp.size, ans.len());
     } 
+
+    ans
+}
+
+pub fn chokudai_all( tsp : & Tsp, tansakusu : usize, max_width : usize , max_depth : usize, honsu : usize ) -> Tord {
+    let mut ans = vec![];
+
+    ans = chokudai_search(tsp, 0, tansakusu, max_width, max_depth, honsu);
+    let mut score = tsp.calcScore(&ans).unwrap();
+
+    for i in 1..tsp.size {
+        let tmp_ord =chokudai_search(tsp, i, tansakusu, max_width, max_depth, honsu);
+        let tmp_score = tsp.calcScore(&tmp_ord).unwrap();
+        if score < tmp_score {
+            ans = tmp_ord;
+            score = tmp_score;
+        }
+    }
+    ans
+}
+
+pub fn chokudai_search_part ( tsp : &Tsp, ord : &Vec<usize>, tansakusu : usize, max_width : usize, max_depth : usize,  honsu : usize, visited : &Vec<bool> ) -> Tord {
+    let mut ans : Tord = vec![];
+    let undef = tsp.size+1;
+
+    let max_depth2 = max_depth.min(tsp.size-ord.len());
+
+    // (vetex, back)
+    let mut states : Vec<Vec<(usize,usize)>> = vec![vec![]; max_depth2+1];
+    // ( score, statesのidx)
+    let mut depth_pq : Vec<BinaryHeap<Reverse<(i64, usize)>>> = vec![BinaryHeap::new(); max_depth2+1 ];
+
+    let top = *ord.last().unwrap(); 
+    let tail = ord[0];
+    states[0].push((top, undef));
+
+    depth_pq[0].push(Reverse((0,0)));
+
+    for _ in 0..honsu {
+        for depth in 0..max_depth2 {
+
+            for i in 0..max_width {
+            if depth_pq[depth].is_empty() { break; }
+            let state_info = depth_pq[depth].pop().unwrap().0;
+            // 0 : vertexの頂点番号, 1 : backのstateのidx
+            let top_state = states[depth][state_info.1];
+            let top_vertex = top_state.0;
+
+            let mut near_vertexs : BinaryHeap<(i64,usize)> = BinaryHeap::new();
+
+            let mut visited_vertexs : std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
+            let mut tmp_state = top_state.clone();
+            let mut tmp_depth = depth;
+            visited_vertexs.insert(tmp_state.0);
+
+            while tmp_state.1 != undef {
+                tmp_depth -= 1;
+                tmp_state = states[tmp_depth][tmp_state.1];
+                visited_vertexs.insert(tmp_state.0);
+            }
+
+            for ( i , p ) in tsp.points.iter().enumerate() {
+                if visited[i] { continue; }
+                if visited_vertexs.contains(&i) { continue; }
+
+                let info = (Point::dis(&tsp.points[top_vertex], p), i);
+
+                if near_vertexs.len() < tansakusu {
+                    near_vertexs.push(info);
+                    continue;
+                }
+
+                if info.0 >= near_vertexs.peek().unwrap().0 { continue; }
+                near_vertexs.push(info);
+                near_vertexs.pop();
+            }
+
+            while let Some(vertex) = near_vertexs.pop() {
+                let mut score = state_info.0+Point::dis_sqrt(&tsp.points[vertex.1], &tsp.points[top_vertex]);
+                score += Point::dis_sqrt(&tsp.points[vertex.1], &tsp.points[tail] );
+                //最後尾との距離も考慮
+                score -= Point::dis_sqrt(& tsp.points[tail], &tsp.points[top_vertex]);
+                //
+                depth_pq[depth+1].push(Reverse((score, states[depth+1].len())));
+                states[depth+1].push(( vertex.1, state_info.1));
+            }
+        }
+        }
+    }
+
+    let depth_idx = depth_pq[max_depth2].pop().unwrap().0.1;
+
+    let mut state_info = states[max_depth2][depth_idx];
+    let mut tmp_depth = max_depth2;
+    while state_info.1 != undef {
+        ans.push(state_info.0);
+        tmp_depth -= 1;
+        state_info = states[tmp_depth][state_info.1];
+    }
+    ans.reverse();
+    ans
+}
+
+pub fn chokudai_search2( tsp : &Tsp,  start : usize, tansakusu : usize, max_width : usize, max_depth : usize , honsu : usize )-> Tord {
+
+    let mut ans : Tord = vec![start];
+    let mut visited = vec![false; tsp.size];
+    visited[start] = true;
+
+    while ans.len() < tsp.size {
+        let tmp_ord = chokudai_search_part(tsp, &ans, tansakusu, max_width, max_depth, honsu, &visited);
+
+        for i in tmp_ord.iter() {
+            ans.push(*i);
+            visited[*i] = true;
+        }
+
+    }
+
+    ans
+}
+
+pub fn chokudai_search2_all( tsp : &Tsp, tansakusu : usize, 
+max_width : usize, max_depth : usize, honsu : usize ) -> Tord {
+    
+    let mut ans = vec![];
+
+    ans = chokudai_search2(tsp, 0, tansakusu, max_width, max_depth, honsu);
+    let mut score = tsp.calcScore(&ans).unwrap();
+
+    for i in 1..tsp.size {
+        println!("i = {}", i);
+        let tmp_ord =chokudai_search2(tsp, i, tansakusu, max_width, max_depth, honsu);
+        let tmp_score = tsp.calcScore(&tmp_ord).unwrap();
+        if score > tmp_score {
+            ans = tmp_ord;
+            score = tmp_score;
+        }
+    }
+    ans
+}
+
+pub fn beam_search_part ( tsp : &Tsp, ord : &Vec<usize>, tansakusu : usize, max_width : usize, max_depth : usize, visited : &Vec<bool> ) -> Tord {
+    let mut ans : Tord = vec![];
+    let undef = tsp.size+1;
+
+    let max_depth2 = max_depth.min(tsp.size-ord.len());
+
+    // (vetex, back)
+    let mut states : Vec<Vec<(usize,usize)>> = vec![vec![]; max_depth2+1];
+    // ( score, statesのidx)
+    let mut depth_pq : Vec<BinaryHeap<Reverse<(i64, usize)>>> = vec![BinaryHeap::new(); max_depth2+1 ];
+
+    let top = *ord.last().unwrap(); 
+    let tail = ord[0];
+    states[0].push((top, undef));
+
+    depth_pq[0].push(Reverse((0,0)));
+
+        for depth in 0..max_depth2 {
+
+            for i in 0..max_width {
+            if depth_pq[depth].is_empty() { break; }
+            let state_info = depth_pq[depth].pop().unwrap().0;
+            // 0 : vertexの頂点番号, 1 : backのstateのidx
+            let top_state = states[depth][state_info.1];
+            let top_vertex = top_state.0;
+
+            let mut near_vertexs : BinaryHeap<(i64,usize)> = BinaryHeap::new();
+
+            let mut visited_vertexs : std::collections::BTreeSet<usize> = std::collections::BTreeSet::new();
+            let mut tmp_state = top_state.clone();
+            let mut tmp_depth = depth;
+            visited_vertexs.insert(tmp_state.0);
+
+            while tmp_state.1 != undef {
+                tmp_depth -= 1;
+                tmp_state = states[tmp_depth][tmp_state.1];
+                visited_vertexs.insert(tmp_state.0);
+            }
+
+            for ( i , p ) in tsp.points.iter().enumerate() {
+                if visited[i] { continue; }
+                if visited_vertexs.contains(&i) { continue; }
+
+                let info = (Point::dis(&tsp.points[top_vertex], p), i);
+
+                if near_vertexs.len() < tansakusu {
+                    near_vertexs.push(info);
+                    continue;
+                }
+
+                if info.0 >= near_vertexs.peek().unwrap().0 { continue; }
+                near_vertexs.push(info);
+                near_vertexs.pop();
+            }
+
+            while let Some(vertex) = near_vertexs.pop() {
+                let mut score = state_info.0+Point::dis_sqrt(&tsp.points[vertex.1], &tsp.points[top_vertex]);
+                score += Point::dis_sqrt(&tsp.points[vertex.1], &tsp.points[tail] );
+                //最後尾との距離も考慮
+                // score -= Point::dis_sqrt(& tsp.points[tail], &tsp.points[top_vertex]);
+                //
+                depth_pq[depth+1].push(Reverse((score, states[depth+1].len())));
+                states[depth+1].push(( vertex.1, state_info.1));
+            }
+        }
+    }
+
+    let depth_idx = depth_pq[max_depth2].pop().unwrap().0.1;
+
+    let mut state_info = states[max_depth2][depth_idx];
+    let mut tmp_depth = max_depth2;
+    while state_info.1 != undef {
+        ans.push(state_info.0);
+        tmp_depth -= 1;
+        state_info = states[tmp_depth][state_info.1];
+    }
+    ans.reverse();
+    ans
+}
+
+pub fn beam_seach( tsp : &Tsp,  start : usize, tansakusu : usize, max_width : usize, max_depth : usize)-> Tord {
+
+    let mut ans : Tord = vec![start];
+    let mut visited = vec![false; tsp.size];
+    visited[start] = true;
+
+    while ans.len() < tsp.size {
+        let tmp_ord = beam_search_part(tsp, &ans, tansakusu, max_width, max_depth, &visited);
+
+        for i in tmp_ord.iter() {
+            ans.push(*i);
+            visited[*i] = true;
+        }
+
+    }
 
     ans
 }

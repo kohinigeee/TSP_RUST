@@ -99,6 +99,7 @@ pub fn nearest_all( inst : &Tsp ) -> Tord {
     let mut score  = inst.calcScore(&ans);
 
     for i in 1..inst.size {
+        println!("i = {}", i);
         let ans_tmp : Tord = nearest(inst, i);
         let score_tmp = inst.calcScore(&ans_tmp);
 

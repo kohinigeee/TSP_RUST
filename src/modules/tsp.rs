@@ -51,7 +51,9 @@ impl Tsp {
 
         for (i, v) in ord.iter().enumerate() {
             let nextp = (i+1)%self.size;
-            ans += Point::dis_sqrt(&self.points[*v], &self.points[ord[nextp]]);
+            let dis = Point::dis_sqrt(&self.points[*v], &self.points[ord[nextp]]);
+
+            ans += dis;
         }
         Some(ans)
     } 

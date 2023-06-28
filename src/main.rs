@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()>{
     opt_scores.insert("pr264".to_string(), 49135);
 
 
-    let problemname = "brd14051".to_string();
+    let problemname = "pla33810".to_string();
     // let problemname = "fnl4461".to_string();
     // let problemname = "brd14051".to_string();
     let opt_score = *opt_scores.get(&problemname).unwrap();

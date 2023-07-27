@@ -238,7 +238,8 @@ pub struct OrdArrayLocal {
     pub array: Vec<usize>,
     pub pos: Vec<usize>,
     tsp: Tsp,
-    now_score: i64,
+    pub now_score: i64,
+    pub init_score : i64,
     pub best_score: i64,
     pub cnt_moves: u64,
     pub cnt_rounds: u64,
@@ -250,6 +251,7 @@ impl OrdArrayLocal {
         let array = init_ord.clone();
         let tsp = init_tsp.clone();
         let now_score = score;
+        let init_score = score;
         let best_score = score;
         let cnt_moves = 0;
         let cnt_rounds = 0;
@@ -264,6 +266,7 @@ impl OrdArrayLocal {
             array,
             tsp,
             now_score,
+            init_score,
             best_score,
             cnt_moves,
             cnt_rounds,
@@ -392,19 +395,16 @@ impl OrdArrayLocal {
     //       2 : do_2opt_shorter
     //senryakutype  1 : 即時
     //              2 : 最良
-    pub fn opt2_random(&mut self, functype: usize, senryaku_type: &SenryakuType, seed: u64) {
+    pub fn opt2_random(&mut self, functype: usize, senryaku_type: &SenryakuType, seed: u64, lmit_time : u128) {
         self.cnt_moves = 0;
         self.cnt_rounds = 0;
         let n = self.tsp.size;
         let limt = (n * n) as f64 * 0.1;
 
-        let lmit_time = 5 * 60 * 1000;
-
         let neighbor_size = limt as u64;
 
-        println!("Log[opt2_random] neibhor_size = {}", neighbor_size);
-
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+        println!("[Log] local search limt_time = {}", lmit_time);
 
         let start = Instant::now();
         loop {
@@ -414,7 +414,7 @@ impl OrdArrayLocal {
             let mut best_pair: (usize, usize) = (n + 1, n + 1);
             let mut best_dif = 0;
 
-            for _ in 0..neighbor_size {
+            for i in 0..neighbor_size {
                 let idx1 = rng.gen_range(0, n);
                 let idx2 = rng.gen_range(0, n);
 
@@ -422,6 +422,9 @@ impl OrdArrayLocal {
                 self.cnt_rounds += 1;
 
                 // println!("[Log] dif = {}", dif);
+                if i % 10000 == 0 && i >= 10000 {
+                    print!("\r[Log] localsearch i = {}", i);
+                }
 
                 if dif < best_dif {
                     best_pair = (idx1, idx2);
@@ -467,15 +470,16 @@ impl OrdArrayLocal {
         senryaku_type: &SenryakuType,
         seed: u64,
         lists: &Vec<Vec<usize>>,
+        lmit_time : u128,
     ) {
         self.cnt_moves = 0;
         self.cnt_rounds = 0;
         let n = self.tsp.size;
 
-        let lmit_time = 5 * 60 * 1000;
-        let neighbor_size = n;
+        let neighbor_size = self.tsp.size;
+        let neighbor_list_size = lists[0].len();
 
-        println!("Log[opt2_random] neibhor_size = {}", neighbor_size);
+        println!("Log[opt2_random] neibhor_size = {}", neighbor_list_size);
 
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
 
@@ -534,6 +538,12 @@ impl OrdArrayLocal {
             self.cnt_moves += 1;
         }
     }
+
+    pub fn print(&self ) {
+        println!("init_score = {}", self.init_score);
+        println!("best_score = {}", self.best_score);
+        println!("")
+    }
 }
 
 pub fn calcNeighborList(tsp: &Tsp, list_size: usize) -> Vec<Vec<usize>> {
@@ -542,7 +552,7 @@ pub fn calcNeighborList(tsp: &Tsp, list_size: usize) -> Vec<Vec<usize>> {
     let lmt = list_size;
 
     for i in 0..n {
-        println!("[Log] calcNeighborList i = {}", i);
+        // println!("[Log] calcNeighborList i = {}", i);
         let mut v = vec![0; n];
         for j in 0..n {
             v[j] = j;

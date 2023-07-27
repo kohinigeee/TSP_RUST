@@ -16,15 +16,17 @@ use rand::{Rng};
 mod modules;
 mod tests;
 
-use modules::tspinstance::{TspInstance, ProblemPath};
+use modules::tspinstance::*;
 use modules::point::Point;
 use modules::construct;
 use modules::tsp::*;
-use modules::opttour::OptTour;
-
-use tests::localserachexp;
+use modules::myils;
 
 use crate::modules::construct::{Insertion, insertion_demo, nearest_all};
+use crate::modules::tspinstance;
+
+use tests::listest;
+use tests::ilsexp;
 
 
 fn main() -> anyhow::Result<()>{
@@ -41,15 +43,16 @@ fn main() -> anyhow::Result<()>{
     opt_scores.insert("pr264".to_string(), 49135);
 
 
-    let problemname = "pla33810".to_string();
+    let problemname = "pr1002".to_string();
+    // let problemname = "pla33810".to_string();
     // let problemname = "fnl4461".to_string();
     // let problemname = "brd14051".to_string();
     let opt_score = *opt_scores.get(&problemname).unwrap();
 
-    localserachexp::local_2opt_random_exp(&problemname, opt_score);
-    // tests::ordarraytest::test_2opt_dif();
-    // tests::ordarraytest::test_neiborlist();
+    // myils::select_idxs_for_dbbridge(&init_ord, &1u64);
+    // println!();
 
-    println!();
+    ilsexp::ils_random_exp(&problemname, opt_score);
+
     Ok(())
 }
